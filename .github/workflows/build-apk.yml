@@ -1,68 +1,39 @@
-name: Build APK 1.4
+name: Build SunsetTV APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]'
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
-      - name: Extrair fonte
-        run: |
-          mkdir -p project
-          if [ -f "SunsetTV-1.4-src.zip" ]; then
-            unzip -o -q "SunsetTV-1.4-src.zip" -d project
-            echo "A usar SunsetTV-1.4-src.zip (ecra corrigido)"
-          else
-            unzip -o -q "SunsetTV (2).zip" -d project
-            echo "AVISO: zip 1.4 nao encontrado, a usar o original"
-          fi
-          grep -c "ENTRAR" project/SunsetTV/app/src/main/java/com/sunsettv/ui/LoginScreen.kt || true
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
 
-      - name: Gradle 8.7
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
+    - name: Grant execute permission for gradlew
+      run: |
+        if [ ! -f "gradlew" ]; then
+          gradle wrapper --gradle-version 8.5
+        fi
+        chmod +x gradlew
 
-      - name: Compilar
-        working-directory: project/SunsetTV
-        run: |
-          gradle wrapper --gradle-version 8.7
-          ./gradlew :app:assembleDebug --no-daemon
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug --no-daemon
 
-      - name: Confirmar APK
-        working-directory: project/SunsetTV
-        run: ls -lh app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Guardar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: project/SunsetTV/app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Publicar no repositorio
-        continue-on-error: true
-        run: |
-          cp project/SunsetTV/app/build/outputs/apk/debug/app-debug.apk SunsetTV-1.4-debug.apk
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add SunsetTV-1.4-debug.apk
-          if git diff --cached --quiet; then echo "APK sem alteracoes"; else
-            git commit -m "Build automatico: SunsetTV-1.4-debug.apk"
-            git push
-          fi
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
