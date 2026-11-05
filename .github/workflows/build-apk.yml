@@ -22,7 +22,7 @@ jobs:
       - name: Extrair fonte e aplicar LoginScreen
         run: |
           mkdir -p project
-          unzip -o -q "SunsetTV (2).zip" -d project
+          unzip -o -q "SunsetTV-1.4-debug.apk" -d project
           if [ -f LoginScreen.kt ]; then
             cp LoginScreen.kt project/SunsetTV/app/src/main/java/com/sunsettv/ui/screens/LoginScreen.kt
             echo "LoginScreen.kt aplicado com sucesso."
