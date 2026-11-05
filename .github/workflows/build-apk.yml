@@ -1,7 +1,8 @@
-name: SunsetTV - Build APK
+name: Build APK 1.4
 
 on:
   push:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -9,74 +10,59 @@ permissions:
 
 jobs:
   build:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Extrair fonte e aplicar LoginScreen
+      - name: Extrair fonte
         run: |
           mkdir -p project
-          # Substitui pelo nome exato do teu ficheiro zip ou estrutura do projeto no repo
-          if [ -f "SunsetTV (2).zip" ]; then
+          if [ -f "SunsetTV-1.4-src.zip" ]; then
+            unzip -o -q "SunsetTV-1.4-src.zip" -d project
+            echo "A usar SunsetTV-1.4-src.zip (ecra corrigido)"
+          else
             unzip -o -q "SunsetTV (2).zip" -d project
-          elif [ -f "SunsetTV-1.4-debug.apk" ]; then
-            echo "Aviso: Encontrado APK em vez de ZIP. A usar estrutura base se disponível."
+            echo "AVISO: zip 1.4 nao encontrado, a usar o original"
           fi
-          
-          # Copiar o LoginScreen.kt da raiz para o diretório correto do projeto Android
-          if [ -f LoginScreen.kt ]; then
-            # Procura dinamicamente a pasta de destino do ui/screens no projeto extraído
-            TARGET_DIR=$(find project -type d -path "*/app/src/main/java/*/ui/screens" | head -n 1)
-            if [ -z "$TARGET_DIR" ]; then
-              TARGET_DIR="project/SunsetTV/app/src/main/java/com/sunsettv/ui/screens"
-              mkdir -p "$TARGET_DIR"
-            fi
-            cp LoginScreen.kt "$TARGET_DIR/LoginScreen.kt"
-            echo "LoginScreen.kt aplicado com sucesso em: $TARGET_DIR"
-          fi
+          grep -c "ENTRAR" project/SunsetTV/app/src/main/java/com/sunsettv/ui/LoginScreen.kt || true
 
-          # Garantir otimização de memória no gradle.properties
-          GRADLE_PROP=$(find project -name "gradle.properties" | head -n 1)
-          if [ -n "$GRADLE_PROP" ]; then
-            sed -i 's|^org.gradle.jvmargs=.*|org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8|' "$GRADLE_PROP"
-          fi
-
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Compilar APK
+      - name: Compilar
+        working-directory: project/SunsetTV
         run: |
-          # Encontra a pasta onde está o gradlew
-          GRADLEW_DIR=$(find project -name "gradlew" -exec dirname {} \; | head -n 1)
-          if [ -n "$GRADLEW_DIR" ]; then
-            cd "$GRADLEW_DIR"
-            chmod +x gradlew
-            ./gradlew :app:assembleDebug --no-daemon
-          else
-            echo "Erro: gradlew não encontrado!"
-            exit 1
-          fi
+          gradle wrapper --gradle-version 8.7
+          ./gradlew :app:assembleDebug --no-daemon
 
-      - name: Publicar APK no repositorio
+      - name: Confirmar APK
+        working-directory: project/SunsetTV
+        run: ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: project/SunsetTV/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publicar no repositorio
+        continue-on-error: true
         run: |
-          APK_PATH=$(find project -name "app-debug.apk" | head -n 1)
-          if [ -n "$APK_PATH" ]; then
-            cp "$APK_PATH" SunsetTV-1.5-debug.apk
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add SunsetTV-1.5-debug.apk
-            if git diff --cached --quiet; then echo "APK sem alteracoes."; else
-              git commit -m "Build automatico: SunsetTV-1.5-debug.apk"
-              git push
-            fi
-          else
-            echo "Erro: APK não encontrado para publicação!"
-            exit 1
+          cp project/SunsetTV/app/build/outputs/apk/debug/app-debug.apk SunsetTV-1.4-debug.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add SunsetTV-1.4-debug.apk
+          if git diff --cached --quiet; then echo "APK sem alteracoes"; else
+            git commit -m "Build automatico: SunsetTV-1.4-debug.apk"
+            git push
           fi
