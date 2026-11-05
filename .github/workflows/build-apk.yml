@@ -22,18 +22,23 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
 
-    - name: Grant execute permission for gradlew
+    - name: Locate Project Root and Build
       run: |
+        # Procura automaticamente pela pasta que contém o build.gradle do projeto Android
+        PROJECT_DIR=$(find . -name "build.gradle" -maxdepth 3 | xargs dirname | head -n 1)
+        echo "Pasta do projeto encontrada: $PROJECT_DIR"
+        cd "$PROJECT_DIR"
+        
+        # Gera o wrapper do Gradle se não existir
         if [ ! -f "gradlew" ]; then
           gradle wrapper --gradle-version 8.5
         fi
+        
         chmod +x gradlew
-
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug --no-daemon
+        ./gradlew assembleDebug --no-daemon
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: '**/app/build/outputs/apk/debug/app-debug.apk'
